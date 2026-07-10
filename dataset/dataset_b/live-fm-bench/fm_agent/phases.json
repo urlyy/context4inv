@@ -1,0 +1,303 @@
+{
+  "project": "live-fm-bench",
+  "languages": ["c", "python"],
+  "file_extensions": ["c", "py"],
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Raw Benchmark Definitions",
+      "description": "Contains the 227 original C benchmark programs with array/loop verification tasks, each with a main() entry point and Unicode ACSL assertions using ∀ and => operators.",
+      "modules": [
+        {
+          "name": "targets_data",
+          "source_files": ["targets.txt", "live-fm-bench.json", "test.csv", "record.csv", "cfiles.list", "names_1.txt", "names_2.txt"]
+        },
+        {
+          "name": "array-cav19",
+          "source_files": [
+            "array-cav19/array_doub_access_init_const/array_doub_access_init_const.c",
+            "array-cav19/array_init_both_ends_multiple_sum/array_init_both_ends_multiple_sum.c",
+            "array-cav19/array_init_nondet_vars/array_init_nondet_vars.c",
+            "array-cav19/array_init_pair_sum_const/array_init_pair_sum_const.c",
+            "array-cav19/array_init_pair_symmetr/array_init_pair_symmetr.c",
+            "array-cav19/array_tiling_poly6/array_tiling_poly6.c",
+            "array-cav19/array_tiling_tcpy/array_tiling_tcpy.c",
+            "array-cav19/array_tripl_access_init_const/array_tripl_access_init_const.c"
+          ]
+        },
+        {
+          "name": "array-crafted",
+          "source_files": [
+            "array-crafted/zero_sum_const1/zero_sum_const1.c",
+            "array-crafted/zero_sum_const2/zero_sum_const2.c",
+            "array-crafted/zero_sum_const_m2/zero_sum_const_m2.c",
+            "array-crafted/zero_sum_const_m3/zero_sum_const_m3.c"
+          ]
+        },
+        {
+          "name": "array-examples",
+          "source_files": [
+            "array-examples/sanfoundry_02_ground/sanfoundry_02_ground.c",
+            "array-examples/sanfoundry_10_ground/sanfoundry_10_ground.c",
+            "array-examples/sanfoundry_27_ground/sanfoundry_27_ground.c",
+            "array-examples/standard_compareModified_ground/standard_compareModified_ground.c",
+            "array-examples/standard_compare_ground/standard_compare_ground.c",
+            "array-examples/standard_copy1_ground-1/standard_copy1_ground-1.c",
+            "array-examples/standard_copyInitSum3_ground/standard_copyInitSum3_ground.c",
+            "array-examples/standard_copyInitSum_ground/standard_copyInitSum_ground.c",
+            "array-examples/standard_copyInit_ground/standard_copyInit_ground.c",
+            "array-examples/standard_find_ground-1/standard_find_ground-1.c",
+            "array-examples/standard_init2_ground-2/standard_init2_ground-2.c",
+            "array-examples/standard_init3_ground-2/standard_init3_ground-2.c",
+            "array-examples/standard_maxInArray_ground/standard_maxInArray_ground.c",
+            "array-examples/standard_minInArray_ground-2/standard_minInArray_ground-2.c",
+            "array-examples/standard_palindrome_ground/standard_palindrome_ground.c",
+            "array-examples/standard_partial_init_ground/standard_partial_init_ground.c",
+            "array-examples/standard_partition_original_ground/standard_partition_original_ground.c",
+            "array-examples/standard_password_ground/standard_password_ground.c",
+            "array-examples/standard_reverse_ground/standard_reverse_ground.c",
+            "array-examples/standard_sentinel-2/standard_sentinel-2.c",
+            "array-examples/standard_seq_init_ground/standard_seq_init_ground.c",
+            "array-examples/standard_two_index_01/standard_two_index_01.c",
+            "array-examples/standard_two_index_02/standard_two_index_02.c",
+            "array-examples/standard_two_index_03/standard_two_index_03.c",
+            "array-examples/standard_two_index_04/standard_two_index_04.c",
+            "array-examples/standard_vararg_ground/standard_vararg_ground.c",
+            "array-examples/standard_vector_difference_ground/standard_vector_difference_ground.c"
+          ]
+        },
+        {
+          "name": "array-fpi",
+          "source_files": [
+            "array-fpi/brs1/brs1.c", "array-fpi/brs2/brs2.c", "array-fpi/brs3/brs3.c",
+            "array-fpi/conda/conda.c", "array-fpi/condg/condg.c", "array-fpi/condm/condm.c",
+            "array-fpi/condn/condn.c", "array-fpi/eqn1/eqn1.c", "array-fpi/eqn2/eqn2.c",
+            "array-fpi/eqn3/eqn3.c", "array-fpi/eqn4/eqn4.c", "array-fpi/eqn5/eqn5.c",
+            "array-fpi/ifcomp/ifcomp.c", "array-fpi/ifeqn1/ifeqn1.c", "array-fpi/ifeqn2/ifeqn2.c",
+            "array-fpi/ifeqn3/ifeqn3.c", "array-fpi/ifeqn4/ifeqn4.c", "array-fpi/ifeqn5/ifeqn5.c",
+            "array-fpi/ifncomp/ifncomp.c", "array-fpi/indp1/indp1.c", "array-fpi/indp2/indp2.c",
+            "array-fpi/indp3/indp3.c", "array-fpi/indp4/indp4.c", "array-fpi/indp5/indp5.c",
+            "array-fpi/modn/modn.c", "array-fpi/modp/modp.c", "array-fpi/mods/mods.c",
+            "array-fpi/ms1/ms1.c", "array-fpi/ms2/ms2.c", "array-fpi/ms3/ms3.c",
+            "array-fpi/ms4/ms4.c", "array-fpi/ms5/ms5.c", "array-fpi/ncomp/ncomp.c",
+            "array-fpi/nsqm/nsqm.c", "array-fpi/nsqm-if/nsqm-if.c", "array-fpi/pcomp/pcomp.c",
+            "array-fpi/res1/res1.c", "array-fpi/res1o/res1o.c", "array-fpi/res2/res2.c",
+            "array-fpi/res2o/res2o.c", "array-fpi/s1if/s1if.c", "array-fpi/s1lif/s1lif.c",
+            "array-fpi/s2if/s2if.c", "array-fpi/s2lif/s2lif.c", "array-fpi/s3if/s3if.c",
+            "array-fpi/s3lif/s3lif.c", "array-fpi/s4if/s4if.c", "array-fpi/s4lif/s4lif.c",
+            "array-fpi/s5if/s5if.c", "array-fpi/s5lif/s5lif.c", "array-fpi/s12if/s12if.c",
+            "array-fpi/s22if/s22if.c", "array-fpi/s32if/s32if.c", "array-fpi/s42if/s42if.c",
+            "array-fpi/s52if/s52if.c", "array-fpi/sina1/sina1.c", "array-fpi/sina2/sina2.c",
+            "array-fpi/sina3/sina3.c", "array-fpi/sina4/sina4.c", "array-fpi/sina5/sina5.c",
+            "array-fpi/sqm/sqm.c", "array-fpi/sqm-if/sqm-if.c", "array-fpi/ss1/ss1.c",
+            "array-fpi/ss2/ss2.c", "array-fpi/ss3/ss3.c", "array-fpi/ss4/ss4.c",
+            "array-fpi/ssina/ssina.c"
+          ]
+        },
+        {
+          "name": "array-industry-pattern",
+          "source_files": [
+            "array-industry-pattern/array_monotonic/array_monotonic.c",
+            "array-industry-pattern/array_mul_init/array_mul_init.c",
+            "array-industry-pattern/array_shadowinit/array_shadowinit.c",
+            "array-industry-pattern/array_single_elem_init/array_single_elem_init.c"
+          ]
+        },
+        {
+          "name": "array-lopstr16",
+          "source_files": [
+            "array-lopstr16/partial_lesser_bound-1/partial_lesser_bound-1.c"
+          ]
+        },
+        {
+          "name": "array-programs",
+          "source_files": [
+            "array-programs/copysome1-1/copysome1-1.c",
+            "array-programs/copysome2-1/copysome2-1.c",
+            "array-programs/partial_mod_count_1/partial_mod_count_1.c",
+            "array-programs/partial_mod_count_2/partial_mod_count_2.c",
+            "array-programs/partial_mod_count_3/partial_mod_count_3.c",
+            "array-programs/partial_mod_count_4/partial_mod_count_4.c",
+            "array-programs/partial_mod_count_5/partial_mod_count_5.c",
+            "array-programs/partial_mod_count_limited_1/partial_mod_count_limited_1.c",
+            "array-programs/partial_mod_count_limited_2/partial_mod_count_limited_2.c",
+            "array-programs/partial_mod_count_limited_3/partial_mod_count_limited_3.c",
+            "array-programs/partial_mod_count_limited_4/partial_mod_count_limited_4.c",
+            "array-programs/partial_mod_count_limited_5/partial_mod_count_limited_5.c",
+            "array-programs/partial_mod_count_limited_gen/partial_mod_count_limited_gen.c"
+          ]
+        },
+        {
+          "name": "array-tiling",
+          "source_files": [
+            "array-tiling/mbpr2/mbpr2.c", "array-tiling/mbpr3/mbpr3.c",
+            "array-tiling/mlceu2/mlceu2.c", "array-tiling/poly1/poly1.c",
+            "array-tiling/poly2/poly2.c", "array-tiling/revcpyswp2/revcpyswp2.c",
+            "array-tiling/rew/rew.c", "array-tiling/rewnif/rewnif.c",
+            "array-tiling/rewnifrev/rewnifrev.c", "array-tiling/rewnifrev2/rewnifrev2.c",
+            "array-tiling/rewrev/rewrev.c", "array-tiling/tcpy/tcpy.c"
+          ]
+        },
+        {
+          "name": "loop-acceleration",
+          "source_files": [
+            "loop-acceleration/array_1-2/array_1-2.c",
+            "loop-acceleration/array_2-2/array_2-2.c",
+            "loop-acceleration/array_2-2-simple/array_2-2-simple.c",
+            "loop-acceleration/array_4/array_4.c",
+            "loop-acceleration/const_1-1/const_1-1.c",
+            "loop-acceleration/diamond_1-1/diamond_1-1.c",
+            "loop-acceleration/diamond_2-2/diamond_2-2.c",
+            "loop-acceleration/multivar_1-1/multivar_1-1.c",
+            "loop-acceleration/nested_1-1/nested_1-1.c",
+            "loop-acceleration/phases_1-1/phases_1-1.c",
+            "loop-acceleration/simple_1-2/simple_1-2.c",
+            "loop-acceleration/underapprox_1-2/underapprox_1-2.c",
+            "loop-acceleration/underapprox_2-2/underapprox_2-2.c"
+          ]
+        },
+        {
+          "name": "loop-crafted",
+          "source_files": [
+            "loop-crafted/simple_array_index_value_1-1/simple_array_index_value_1-1.c",
+            "loop-crafted/simple_array_index_value_3/simple_array_index_value_3.c",
+            "loop-crafted/simple_vardep_1/simple_vardep_1.c",
+            "loop-crafted/simple_vardep_2/simple_vardep_2.c"
+          ]
+        },
+        {
+          "name": "loop-invariants",
+          "source_files": [
+            "loop-invariants/eq1/eq1.c", "loop-invariants/eq2/eq2.c",
+            "loop-invariants/even/even.c", "loop-invariants/mod4/mod4.c",
+            "loop-invariants/odd/odd.c"
+          ]
+        },
+        {
+          "name": "loop-new",
+          "source_files": [
+            "loop-new/gauss_sum/gauss_sum.c", "loop-new/nested-1/nested-1.c"
+          ]
+        },
+        {
+          "name": "loop-zilu",
+          "source_files": [
+            "loop-zilu/benchmark01_conjunctive/benchmark01_conjunctive.c",
+            "loop-zilu/benchmark02_linear/benchmark02_linear.c",
+            "loop-zilu/benchmark04_conjunctive/benchmark04_conjunctive.c",
+            "loop-zilu/benchmark05_conjunctive/benchmark05_conjunctive.c",
+            "loop-zilu/benchmark06_conjunctive/benchmark06_conjunctive.c",
+            "loop-zilu/benchmark08_conjunctive/benchmark08_conjunctive.c",
+            "loop-zilu/benchmark09_conjunctive/benchmark09_conjunctive.c",
+            "loop-zilu/benchmark10_conjunctive/benchmark10_conjunctive.c",
+            "loop-zilu/benchmark11_linear/benchmark11_linear.c",
+            "loop-zilu/benchmark12_linear/benchmark12_linear.c",
+            "loop-zilu/benchmark13_conjunctive/benchmark13_conjunctive.c",
+            "loop-zilu/benchmark14_linear/benchmark14_linear.c",
+            "loop-zilu/benchmark15_conjunctive/benchmark15_conjunctive.c",
+            "loop-zilu/benchmark16_conjunctive/benchmark16_conjunctive.c",
+            "loop-zilu/benchmark17_conjunctive/benchmark17_conjunctive.c",
+            "loop-zilu/benchmark18_conjunctive/benchmark18_conjunctive.c",
+            "loop-zilu/benchmark19_conjunctive/benchmark19_conjunctive.c",
+            "loop-zilu/benchmark20_conjunctive/benchmark20_conjunctive.c",
+            "loop-zilu/benchmark22_conjunctive/benchmark22_conjunctive.c",
+            "loop-zilu/benchmark23_conjunctive/benchmark23_conjunctive.c",
+            "loop-zilu/benchmark24_conjunctive/benchmark24_conjunctive.c",
+            "loop-zilu/benchmark25_linear/benchmark25_linear.c",
+            "loop-zilu/benchmark26_linear/benchmark26_linear.c",
+            "loop-zilu/benchmark27_linear/benchmark27_linear.c",
+            "loop-zilu/benchmark28_linear/benchmark28_linear.c",
+            "loop-zilu/benchmark29_linear/benchmark29_linear.c",
+            "loop-zilu/benchmark30_conjunctive/benchmark30_conjunctive.c",
+            "loop-zilu/benchmark32_linear/benchmark32_linear.c",
+            "loop-zilu/benchmark33_linear/benchmark33_linear.c",
+            "loop-zilu/benchmark34_conjunctive/benchmark34_conjunctive.c",
+            "loop-zilu/benchmark35_linear/benchmark35_linear.c",
+            "loop-zilu/benchmark36_conjunctive/benchmark36_conjunctive.c",
+            "loop-zilu/benchmark37_conjunctive/benchmark37_conjunctive.c",
+            "loop-zilu/benchmark38_conjunctive/benchmark38_conjunctive.c",
+            "loop-zilu/benchmark39_conjunctive/benchmark39_conjunctive.c",
+            "loop-zilu/benchmark40_polynomial/benchmark40_polynomial.c",
+            "loop-zilu/benchmark41_conjunctive/benchmark41_conjunctive.c",
+            "loop-zilu/benchmark42_conjunctive/benchmark42_conjunctive.c",
+            "loop-zilu/benchmark43_conjunctive/benchmark43_conjunctive.c",
+            "loop-zilu/benchmark44_disjunctive/benchmark44_disjunctive.c",
+            "loop-zilu/benchmark45_disjunctive/benchmark45_disjunctive.c",
+            "loop-zilu/benchmark46_disjunctive/benchmark46_disjunctive.c",
+            "loop-zilu/benchmark47_linear/benchmark47_linear.c",
+            "loop-zilu/benchmark48_linear/benchmark48_linear.c",
+            "loop-zilu/benchmark49_linear/benchmark49_linear.c",
+            "loop-zilu/benchmark50_linear/benchmark50_linear.c",
+            "loop-zilu/benchmark51_polynomial/benchmark51_polynomial.c",
+            "loop-zilu/benchmark52_polynomial/benchmark52_polynomial.c",
+            "loop-zilu/benchmark53_polynomial/benchmark53_polynomial.c"
+          ]
+        },
+        {
+          "name": "loops",
+          "source_files": [
+            "loops/eureka_05/eureka_05.c", "loops/n11/n11.c"
+          ]
+        },
+        {
+          "name": "loops-crafted-1",
+          "source_files": [
+            "loops-crafted-1/Mono1_1-2/Mono1_1-2.c",
+            "loops-crafted-1/loopv1/loopv1.c", "loops-crafted-1/loopv2/loopv2.c",
+            "loops-crafted-1/mono-crafted_1/mono-crafted_1.c",
+            "loops-crafted-1/mono-crafted_3/mono-crafted_3.c",
+            "loops-crafted-1/mono-crafted_6/mono-crafted_6.c",
+            "loops-crafted-1/mono-crafted_7/mono-crafted_7.c",
+            "loops-crafted-1/mono-crafted_8/mono-crafted_8.c",
+            "loops-crafted-1/mono-crafted_9/mono-crafted_9.c",
+            "loops-crafted-1/mono-crafted_10/mono-crafted_10.c",
+            "loops-crafted-1/mono-crafted_11/mono-crafted_11.c",
+            "loops-crafted-1/mono-crafted_12/mono-crafted_12.c",
+            "loops-crafted-1/mono-crafted_13/mono-crafted_13.c",
+            "loops-crafted-1/mono-crafted_14/mono-crafted_14.c",
+            "loops-crafted-1/nested3-1/nested3-1.c",
+            "loops-crafted-1/sum_natnum/sum_natnum.c"
+          ]
+        }
+      ],
+      "depends_on_phases": []
+    },
+    {
+      "phase": 2,
+      "name": "ACSL Frama-C Conversion",
+      "description": "Converts raw benchmarks to Frama-C-compatible format via external fmagent toolchain: renames main() to foo(), transforms Unicode ACSL (∀, =>) to \\forall / ==> format, and generates _frama.c files (226 exist; multivar_1-1 lacks one), _handle_assert_infilled.c, _handle_assert_marked.c, and .pickle artifacts.",
+      "modules": [],
+      "depends_on_phases": [1]
+    },
+    {
+      "phase": 3,
+      "name": "ESBMC/IBMC Conversion",
+      "description": "Converts raw .c files to ESBMC-compatible _ibmc.c format: replaces ACSL assertions with __VERIFIER_assert calls, converts ∀ quantifiers to __forall() calls, transforms uninitialized int declarations to nondet_int() assignments, and adds __VERIFIER_assume calls. Entry point remains main() (NOT renamed to foo()). All 227 _ibmc.c files exist.",
+      "modules": [
+        {
+          "name": "ibmc_converter",
+          "source_files": ["convert_to_ibmc.py"]
+        }
+      ],
+      "depends_on_phases": [1]
+    },
+    {
+      "phase": 4,
+      "name": "Verification and Analysis Utilities",
+      "description": "Provides auxiliary tools for nested loop detection (check_nested_loops.py), assume-to-requires conversion (convert_assume.py, brittle: hardcoded path), benchmark discovery from test.csv (find_targets.py), JSON data dumping (dump_code.py), and file listing utilities (dump.sh) for the benchmark suite.",
+      "modules": [
+        {
+          "name": "analysis_utilities",
+          "source_files": [
+            "check_nested_loops.py",
+            "convert_assume.py",
+            "find_targets.py",
+            "dump_code.py",
+            "dump.sh"
+          ]
+        }
+      ],
+      "depends_on_phases": [1, 2, 3]
+    }
+  ]
+}

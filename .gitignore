@@ -1,4 +1,6 @@
 __pycache__
+__pycache__/
+*.pyc
 .history
 .vscode
 output/
@@ -6,13 +8,21 @@ output/
 LOG_*
 all_dataset
 
-!nested_test/LOG_*
+nested_test/LOG_*
 
 no_need
 
+*.pickle
+assert_infilled.c
+assert_marked.c
 *_assert_infilled.c
 *_assert_marked.c
 *_assert.c.pickle
+*_frama_infilled.c
+*_frama_marked.c
 fmagent_*
 
 old_benchmark
+.agents
+*.ps1
+names.txt

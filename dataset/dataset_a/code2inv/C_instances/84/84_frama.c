@@ -1,0 +1,13 @@
+void fmain(int y) {
+  // variable declarations
+  int x;
+  // pre-conditions
+  x = -50;
+  // loop body
+  while (x < 0) {
+    x  = x + y;
+    y  = y + 1;
+  }
+  // post-condition
+  //@ assert(y > 0);
+}

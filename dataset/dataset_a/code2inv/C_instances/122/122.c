@@ -1,0 +1,18 @@
+int main(int size) {
+  // variable declarations
+  int i;
+  int sn;
+  int v1;
+  int v2;
+  int v3;
+  // pre-conditions
+  sn = 0;
+  i = 1;
+  // loop body
+  while (i <= size) {
+    i  = i + 1;
+    sn  = sn + 1;
+  }
+  // post-condition
+  //@ assert( (sn != size)=>(sn == 0) )
+}

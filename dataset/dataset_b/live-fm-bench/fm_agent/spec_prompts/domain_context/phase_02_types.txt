@@ -1,0 +1,76 @@
+===============================================================================
+ PHASE 2: ACSL FRAMA-C CONVERSION
+===============================================================================
+
+PHASE DESCRIPTION
+-----------------
+Converts raw benchmarks to Frama-C-compatible format. Entry point renamed
+from main() to foo(). Unicode ACSL converted to \forall / ==> format
+with trailing semicolons. Generates _frama.c files and Frama-C verification
+artifacts (_handle_assert_infilled.c, _handle_assert_marked.c, .pickle).
+
+This conversion is performed by the external fmagent toolchain — no
+conversion scripts for Phase 2 reside in this repository. The per-target
+fmagent_<name>_frama/ directories (117 exist) contain working copies.
+
+NO structs or custom types. All operations on primitive int.
+
+TRANSFORMATIONS PERFORMED
+-------------------------
+1. Function rename: main() → foo()
+2. ACSL conversion:
+   Raw:       //@ assert( ∀j((0 <= j && j < N) => (a[j] == 44)) );
+   _frama.c:  //@ assert( \forall int j; 0 <= j && j < N ==> a[j] == 44 );
+3. ACSL keywords added: \forall, \result, \old, ==> (instead of =>)
+4. Trailing semicolon added to ACSL statements
+5. ACSL delimiter changes: raw .c uses //@ for all annotations;
+   _frama.c uses /*@ ... */ for function-level contracts (requires,
+   ensures) and //@ for inline assertions (loop invariants, asserts).
+6. assume conversion:
+   Raw:       //@ assume(N <= 2147483647/4)   (e.g., overflow guard)
+   _frama.c:  /*@ requires N <= 2147483647/4; */  (above foo())
+   For local variable assumes, creates unknownN() functions with ensures
+   contracts.
+7. Generated files per target:
+   - <name>_frama.c                    -- main output (entry: foo())
+   - <name>_frama_handle_assert_infilled.c  -- Frama-C verification variant
+   - <name>_frama_handle_assert_marked.c    -- Marked assertion variant
+   - <name>_frama_handle_assert.c.pickle    -- Pickle of Frama-C analysis state
+
+ENTRY POINT SIGNATURES (Phase 2)
+---------------------------------
+  int foo (int *a)         -- single array
+  int foo (int *a, int *b) -- two arrays
+  int foo (int *a, int *b, int *c) -- three arrays
+  int foo (int *a, int n)  -- array + size
+  int foo (void)           -- no params
+
+Signatures match Phase 1 main() signatures exactly (same parameter types).
+
+ACSL FORMAT (Phase 2 specific)
+-------------------------------
+  //@ assert( \forall int j; 0 <= j && j < N ==> a[j] == 44 );
+  //@ assert( \forall int j; 0 <= j && j < N ==> a[j] == b[j] );
+  //@ assert( \forall int j; \forall int k;
+              (0 <= j && j < N && 0 <= k && k < N) ==> a[j] <= b[k] );
+
+Function contracts use /*@ ... */:
+  /*@ requires N <= 2147483647/4;
+    @ ensures \forall int j; 0 <= j && j < N ==> a[j] == 42;
+    @*/
+  int foo (int *a, int N) { ... }
+
+INVARIANTS FOR PHASE 2
+-----------------------
+1. Entry function is ALWAYS foo(), never main().
+2. ACSL uses \forall (NOT Unicode ∀) and ==> (NOT => or || !).
+3. Trailing semicolon on ALL ACSL assertions.
+4. Loop structure and variable declarations identical to Phase 1 raw .c.
+5. _handle_assert variants preserve foo() entry point.
+6. .pickle files are Frama-C serialized state (not human-readable, typically
+   ignored for spec writing).
+7. The _frama.c is the canonical input for Frama-C verification.
+8. 226 _frama.c files exist (loop-acceleration/multivar_1-1 lacks one —
+   all other 226 targets have _frama.c).
+9. Function-level contracts (requires/ensures) use /*@ ... */ delimiter;
+   inline annotations (loop invariants, asserts) use //@.

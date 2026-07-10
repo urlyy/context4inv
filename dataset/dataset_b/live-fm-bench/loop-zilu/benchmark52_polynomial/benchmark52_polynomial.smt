@@ -1,0 +1,80 @@
+(set-logic LIA)
+
+( declare-const i Int )
+( declare-const i! Int )
+
+( declare-const i_0 Int )
+( declare-const i_1 Int )
+( declare-const i_2 Int )
+( declare-const i_3 Int )
+
+( define-fun inv-f( ( i Int ) ) Bool
+SPLIT_HERE_asdfghjklzxcvbnmqwertyuiop
+)
+
+( define-fun pre-f ( ( i Int )( i_0 Int )( i_1 Int )( i_2 Int )( i_3 Int ) ) Bool
+	( or
+		( and
+			( = i i_0 )
+			( < i_0 10 )
+			( > i_0 -10 )
+		)
+	)
+)
+
+( define-fun trans-f ( ( i Int )( i! Int )( i_0 Int )( i_1 Int )( i_2 Int )( i_3 Int ) ) Bool
+	( or
+		( and
+			( = i_1 i )
+			( = i_1 i! )
+		)
+		( and
+			( = i_1 i )
+			( < ( * i_1 i_1 ) 100 )
+			( = i_2 ( + i_1 1 ) )
+			( = i_2 i! )
+		)
+	)
+)
+
+( define-fun post-f ( ( i Int )( i_0 Int )( i_1 Int )( i_2 Int )( i_3 Int ) ) Bool
+	( or
+		( not
+			( = i i_1)
+		)
+		( not
+			( and
+				( not ( < ( * i_1 i_1 ) 100 ) )
+				( not ( = i_1 10 ) )
+				( = i_3 i_1 )
+			)
+		)
+	)
+)
+SPLIT_HERE_asdfghjklzxcvbnmqwertyuiop
+( assert ( not
+	( =>
+		( pre-f i i_0 i_1 i_2 i_3  )
+		( inv-f i )
+	)
+))
+
+SPLIT_HERE_asdfghjklzxcvbnmqwertyuiop
+( assert ( not
+	( =>
+		( and
+			( inv-f i )
+			( trans-f i i! i_0 i_1 i_2 i_3 )
+		)
+		( inv-f i! )
+	)
+))
+
+SPLIT_HERE_asdfghjklzxcvbnmqwertyuiop
+( assert ( not
+	( =>
+		( inv-f i  )
+		( post-f i i_0 i_1 i_2 i_3 )
+	)
+))
+

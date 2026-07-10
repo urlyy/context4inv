@@ -1,0 +1,106 @@
+===============================================================================
+ PHASE 1: RAW BENCHMARK DEFINITIONS
+===============================================================================
+
+PHASE DESCRIPTION
+-----------------
+Contains the 227 original C benchmark programs with array/loop verification
+tasks. Each program has a main() entry point, loop constructs, and an ACSL
+assertion using Unicode ∀ (for-all) quantifier and ASCII => (implication).
+
+NO structs or custom types exist in this phase.
+
+TYPES PRODUCED / CONSUMED
+--------------------------
+All benchmarks operate on primitive int types only.
+
+Intrinsic Types:
+  - int: primary data type for all variables, array elements, loop counters,
+         and array sizes. Range: typically within [-2^31, 2^31-1] but
+         benchmarks constrain values to small ranges (0..N, 0..SIZE).
+
+Common Variable Patterns:
+  - int N (or SIZE): symbolic array size bound, typically 100000 or
+    parameterized
+  - int i, j, k: loop induction variables
+  - int *a (or a[]): array parameter (input/output)
+  - int *b, *c: secondary array parameters for copy/compare benchmarks
+  - int x, y, z: scalar variables for temporary values or search targets
+  - int result, flag: output variables carrying verification result
+  - int sum, count: accumulator variables
+
+ENTRY POINT SIGNATURES
+-----------------------
+All raw benchmarks have main(). Signatures vary:
+  int main (int *a)        -- single array benchmarks
+  int main (int *a, int *b) -- two-array benchmarks (copy, compare)
+  int main (int *a, int *b, int *c) -- three-array benchmarks
+  int main (int *a, int n) -- array + size parameter benchmarks
+  int main (void)          -- no-parameter benchmarks (self-contained)
+  int main (int N, int *a, int *b) -- size + two arrays
+
+Some benchmarks have additional signatures:
+  int main (int *a, int *b, int *c, int *d) -- four-array benchmark
+  int main (int *a, int n, int *b, int m)   -- two arrays with distinct sizes
+
+ARRAY SIZE CONVENTIONS
+-----------------------
+- int a[100000]; -- fixed-size stack array (most common)
+- int a[SIZE]; -- symbolic size via macro or parameter
+- int N = 100000; -- compile-time known size
+- int *a -- dynamically sized via function parameter
+
+SOME .c files guard against overflow with:
+  //@ assume(N <= 2147483647/4)
+
+ACSL ASSERTION FORMAT (Phase 1 specific)
+-----------------------------------------
+  //@ assert( ∀j((0 <= j && j < N) => (property(j))) );
+  //@ assert( ∀j((0 <= j && j < N) => (a[j] == value)) );
+  //@ assert( ∀j(∀k((0 <= j && j < N && 0 <= k && k < N) => (prop(j,k)))) );
+  //@ assert( (condition) );   -- simple scalar assertion (no quantifier)
+
+Properties expressed in assertions:
+  - Array initialization: all elements set to specific value
+  - Array copy: a[i] == b[i] for all i
+  - Array comparison: compareModified, compare semantics
+  - Searches: sentinel, find, password verification
+  - Palindrome: a[i] == a[N-1-i] for all i
+  - Partial init: first K elements initialized, rest zero
+  - Partition: elements partitioned around a pivot
+  - Reverse: a[i] == original[N-1-i]
+  - Two-index: relationship between two loop indices
+  - Vector difference: a[i] - b[i] relationship
+  - Vararg / sequential init: cumulative property
+  - Max/min in array: bounds on all elements
+  - Zero-sum constraints: arithmetic relationships
+
+DATA FILES (per-target metadata)
+---------------------------------
+  - targets.txt: Canonical benchmark list (227 entries, no trailing newline).
+    Format: <category>/<name>/<name>.c
+  - live-fm-bench.json: 360 entries (134 missing directories, 217/226
+    JSON "input" fields differ from on-disk .c — do NOT trust "input" field)
+  - test.csv: 228 rows (incl. header). ESBMC results: 191 Success, 36 Error.
+    Col 0: ../my_benchmark/live-fm-bench/<cat>/<name> (no .c)
+    Col 1: Run Time, Col 2: Success/Error
+  - cfiles.list: 240 entries, 14 dead paths (stale — not in targets.txt)
+  - names_1.txt + names_2.txt: 109 + 116 = 225 entries (missing mlceu2)
+    Format: my_benchmark/live-fm-bench/<category>/<name>/<name>.c
+  - record.csv: Broken (header concatenated with first data row)
+
+INVARIANTS FOR PHASE 1
+-----------------------
+1. Each file has exactly one assertion at the end of main().
+2. Assertion uses ∀ (NOT \forall) and => (NOT ==>). NO trailing semicolon.
+3. Loop constructs: while loops dominate in array-fpi; for loops elsewhere.
+   Some benchmarks (e.g., multivar_1-1) have no array — just scalar loops.
+4. Array access bounds: 0 <= i < N always holds (loop guard).
+5. No nested loops in most benchmarks (4 exceptions).
+6. All variables are declared at function top (C89 style).
+7. No function calls except implicit assertions (and abs() in _ibmc.c).
+8. Array parameters are int* (mutable).
+9. Assertion condition is typically a universally quantified formula over
+   array indices, but some are simple scalar assertions.
+10. Some benchmarks use //@ assume(cond) for overflow guards or to
+    constrain nondeterministic values.

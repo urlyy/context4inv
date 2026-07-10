@@ -1,0 +1,132 @@
+===============================================================================
+ ENGINE OVERVIEW: live-fm-bench (Formal Verification Benchmark Suite)
+===============================================================================
+
+1. PROJECT PURPOSE
+------------------
+A benchmark suite of 227 C programs designed for testing formal verification
+tools (Frama-C, ESBMC, etc.). Each benchmark exercises array and loop
+manipulation patterns with accompanying ACSL (ANSI/ISO C Specification
+Language) assertions that specify functional correctness properties.
+
+2. PIPELINE ARCHITECTURE
+-------------------------
+The pipeline transforms benchmark programs through multiple representations:
+
+  Phase 1 (RAW):      Raw .c files with main() entry, Unicode ACSL (∀, =>)
+                       ↓
+  Phase 2 (FRAMA):    Frama-C format: foo() entry, \forall / ==> ACSL
+                       ↓
+  Phase 3 (IBMC):     ESBMC format: __VERIFIER_assert, __forall(), nondet
+                       ↓
+  Phase 4 (UTILITY):  Analysis tools (nested loop detection, assume conv,
+                      benchmark discovery, JSON dumping)
+
+Phase 2 is performed by an external fmagent toolchain (per-target
+fmagent_<name>_frama/ directories); no conversion scripts for Phase 2
+reside in this repo. Phase 3 uses convert_to_ibmc.py (buggy, see caveats).
+Phase 4 tools are independent Python/shell scripts in the repo root.
+
+3. DATA FLOW BETWEEN PHASES
+----------------------------
+- Phase 1 produces raw .c files that are the SOURCE OF TRUTH for all
+  downstream conversions.
+- Phase 2 reads raw .c files and outputs _frama.c files with ACSL in
+  Frama-C-compatible \forall format. It also generates _handle_assert_*
+  variants and .pickle serialized artifacts.
+- Phase 3 reads raw .c files (NOT _frama.c) and outputs _ibmc.c files
+  with ESBMC-compatible __VERIFIER_assert / __forall() calls.
+- Phase 4 operates on any .c file and includes independent analysis tools.
+
+4. FILE GENERATION PER TARGET
+-----------------------------
+For each target <name> in category <cat>/<name>/:
+  - <name>.c                                    -- raw benchmark (entry: main())
+  - <name>_frama.c                              -- ACSL-converted (entry: foo())
+  - <name>_ibmc.c                               -- ESBMC-converted (entry: main(), NOT foo())
+  - <name>_frama_handle_assert_infilled.c       -- Frama-C artifact (entry: foo())
+  - <name>_frama_handle_assert_marked.c         -- Frama-C artifact (entry: foo())
+  - <name>_frama_handle_assert.c.pickle         -- Serialized Frama-C state
+  - <name>_fe.c                                 -- Variant loop encoding (72 targets only)
+  - LOG_<name>/                                 -- Per-invariant run artifact directory
+
+Note: 226 _frama.c files exist (loop-acceleration/multivar_1-1 lacks one).
+All 227 _ibmc.c files exist but use main() — NOT renamed to foo() and no
+stub main() added (known script limitation).
+
+5. ACSL DIALECTS (INCOMPATIBLE)
+-------------------------------
+  1. Raw .c:          //@ assert( ∀j((0<=j && j<N) => (a[j]==44)) )
+                      -- Unicode ∀, ASCII =>, no trailing semicolon
+  2. _frama.c:        //@ assert( \forall int j; 0<=j && j<N ==> a[j]==44 );
+                      -- \forall, ==>, trailing semicolon
+  3. _ibmc.c:         __VERIFIER_assert(__forall((void*)(&j),
+                       (!(0<=j && j<N) || (a[j]==44))));
+                      -- __VERIFIER_assert, __forall(), || ! for implication
+                      -- Also: __VERIFIER_assume(), FORALL/EXISTS macros
+
+6. KEY INVARIANTS
+------------------
+  a) Source-of-truth: raw .c files (targets.txt) are authoritative.
+     Derived files (_frama.c, _ibmc.c) are generated artifacts.
+  b) Entry point: raw .c and _ibmc.c use main(); _frama.c uses foo().
+  c) ACSL format must match the target verifier. Frama-C expects \forall
+     and ==>. ESBMC expects __VERIFIER_assert and __forall().
+  d) Each benchmark's assertion is a functional property about array
+     state after loop execution (e.g., all elements initialized to a value,
+     copy semantics, sortedness, palindrome property).
+  e) Variable declarations in raw .c are simple ints (arrays and scalars).
+     Arrays may have compile-time constant sizes (e.g., `int a[100000]`) or
+     symbolic sizes via int parameters.
+  f) The benchmark suite has 227 targets per targets.txt (no trailing
+     newline — wc -l says 226 but f.read().splitlines() yields 227).
+  g) cfiles.list has 240 entries with 14 dead paths; live-fm-bench.json
+     has 360 entries (134 missing directories, 217/226 JSON inputs differ
+     from on-disk .c files).
+  h) 4 files have nested loops: loop-acceleration/nested_1-1,
+     loop-new/nested-1, loops/eureka_05, loops-crafted-1/nested3-1.
+
+7. DATA ENCODING CONVENTIONS
+-----------------------------
+  - All data in benchmarks is int-typed. No floats, no structs, no pointers
+    beyond int arrays.
+  - Array sizes are typically symbolic constants (N, SIZE) or compile-time
+    constants (100000). Values are bounded by small int ranges or nondet.
+  - Assertions universally quantify over array indices to state post-loop
+    properties.
+  - Nondeterminism in _ibmc.c is injected via __VERIFIER_nondet_int().
+  - Assumptions in _ibmc.c use __VERIFIER_assume() (or __ESBMC_assume —
+    both work with ESBMC).
+
+8. IMPORTANT INVARIANTS PER PHASE
+----------------------------------
+Phase 1 (Raw Benchmarks):
+  - ALL files listed in targets.txt exist on disk.
+  - Each file has a valid main() entry point.
+  - ACSL uses Unicode ∀ and ASCII =>, NO \forall or ==>.
+  - Assertions are at end of function after all loops.
+  - Each raw .c has exactly one //@ assert(...) at the end.
+
+Phase 2 (Frama-C):
+  - Entry function renamed from main() to foo().
+  - ACSL converted to \forall int x; ... ==> ... format with trailing ;.
+  - _handle_assert variants preserve foo() entry.
+  - 226 _frama.c files exist (multivar_1-1 lacking one).
+
+Phase 3 (ESBMC/IBMC):
+  - Entry function is STILL main() — NOT renamed to foo().
+  - No stub main() is appended.
+  - Unicode ∀ → __forall((void*)(&x), ...).
+  - Implication → || ! (disjunction with negated antecedent).
+  - Uninitialized int scalars → __VERIFIER_nondet_int().
+  - convert_to_ibmc.py reads raw .c format only (NOT _frama.c \forall).
+  - Known bugs: skips arrays, initialized vars, pointers in conversion;
+    => → || ! via regex wrong for nested implications;
+    FORALL/EXISTS macro defs produce broken single-line macros.
+
+Phase 4 (Utilities):
+  - check_nested_loops.py is a reliable token-based parser.
+  - convert_assume.py has hardcoded absolute path (brittle on clone).
+  - convert_to_ibmc.py inline check_nested_loops is unreliable.
+  - record.csv is malformed (header concatenated with first data row).
+  - find_targets.py reconstructs paths from test.csv.

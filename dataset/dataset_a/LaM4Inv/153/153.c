@@ -1,0 +1,35 @@
+//SyGuG2018_fib_10
+int main(){
+    int x;
+    int y;
+    int w;
+    int z;
+
+    //pre-condition
+    w = 1;
+    z = 0;
+    x = 0;
+    y = 0;
+
+    //loop-body
+    int unknown1, unknown2;
+    while(unknown1!=0){
+        if(w == 1 && z == 0){
+            x = x + 1;
+            w = 0;
+            y = y + 1;
+            z = 1;
+        }
+        else if(w != 1 && z == 0){
+            y = y + 1;
+            z = 1;
+        }
+        else if(w == 1 && z != 0){
+            x = x + 1;
+            w = 0;
+        }
+        unknown1 = unknown2;
+    }
+    //post-condition
+    //@ assert(x == y);
+}

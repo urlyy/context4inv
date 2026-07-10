@@ -1,0 +1,117 @@
+===============================================================================
+ PHASE 4: VERIFICATION AND ANALYSIS UTILITIES
+===============================================================================
+
+PHASE DESCRIPTION
+-----------------
+Provides auxiliary Python scripts and shell utilities for analyzing,
+converting, and discovering benchmark files. These tools operate on the
+.c source files produced by Phases 1-3 or on the supporting data files
+(test.csv, live-fm-bench.json, targets.txt).
+
+No structs or custom types. All operations on strings, file paths, and
+command-line arguments.
+
+TOOLS (Python Scripts)
+-----------------------
+
+1. check_nested_loops.py
+   - PURPOSE: Recursively scan .c files and detect nested loops.
+   - ALGORITHM: Token-based parser. Strips comments/literals via
+     _strip_comments_and_literals(), tokenizes by identifiers and braces
+     ([A-Za-z_][A-Za-z0-9_]*|\{|\}|\(|\)|;), tracks loop depth via
+     for/while/do-while in parse_loop_statement().
+   - RELIABILITY: High (token-based, not regex). Finds 4 nested-loop files:
+     loop-acceleration/nested_1-1, loop-new/nested-1, loops/eureka_05,
+     loops-crafted-1/nested3-1
+   - USAGE: python3 check_nested_loops.py [--only-nested] [root_dir]
+   - OUTPUT: Prints NESTED/NO_NESTED per file. Summary line at end.
+   - SKIPS: LOG_* dirs; _assert_infilled.c, _assert_marked.c,
+     _frama.c, _ibmc.c files. Does NOT skip _fe.c (72 scanned).
+   - KNOWN BUG: --only-nested flag is a no-op (redundant guard at line
+     273-279 means output is identical with or without flag).
+   - DATA TYPES:
+     - Parser dataclass: tokens (Sequence[str]), pos (int),
+       found_nested (bool)
+     - Function signatures:
+       def has_nested_loops_in_code(code: str) -> bool
+       def scan_directory(root: Path) -> list[tuple[Path, bool]]
+       def iter_c_files(root: Path) -> Iterable[Path]
+   - Scans ~350 .c files total (all raw .c across all categories).
+
+2. convert_assume.py
+   - PURPOSE: Convert //@ assume() to /*@ requires */ in _frama.c files.
+   - ALGORITHM: Regex-based. Finds function definition, extracts params.
+     Classifies assume variables as global/param (→ requires clause before
+     function) or local (→ unknownN() function call with ensures contract).
+   - RELIABILITY: Low. Hardcoded absolute glob path at line 115:
+     "/home/urlyy/workspace/my_benchmark/live-fm-bench/**/*_frama.c"
+     → BROKEN on clone.
+   - USAGE: python3 convert_assume.py (no args — uses hardcoded path)
+   - DATA TYPES: None (pure string processing via regex)
+   - Function: process_file(file_path) -> bool
+
+3. find_targets.py
+   - PURPOSE: Extract benchmark paths from test.csv, strip the
+     "../my_benchmark/live-fm-bench/" prefix, reconstruct full path
+     including .c filename.
+   - USAGE: python3 find_targets.py (prints paths to stdout)
+   - OUTPUT: Prints reconstructed paths like:
+     array-examples/standard_init3_ground-2/standard_init3_ground-2.c
+   - DATA TYPES:
+     def extract_first_column(csv_file: str) -> list[str]
+     Returns list of reconstructed target paths.
+   - Reads test.csv via csv.reader, skips header, strips prefix,
+     appends .c filename based on last path component.
+
+4. dump_code.py
+   - PURPOSE: Dump "input" field from live-fm-bench.json for a hardcoded
+     entry (array-programs/copysome1-1).
+   - USAGE: python3 dump_code.py
+   - RELIABILITY: Partial — only dumps one hardcoded JSON entry.
+     The bulk conversion (commented out) was disabled; not general-purpose.
+   - Has commented-out code for batch writing JSON entries to .c files.
+
+5. dump.sh (Shell Script)
+   - PURPOSE: List all .c files via find + realpath, write to names.txt.
+   - USAGE: bash dump.sh
+   - OUTPUT: Writes to names.txt (one realpath per .c file)
+   - SKIPS: todo_* directories.
+   - Uses: find ./ -type f -name "*.c" ! -path "*/todo_*/*"
+
+DATA FILES (consumed by tools)
+-------------------------------
+  - test.csv: 228 rows (incl. header). Col 0: benchmark path with
+    "../my_benchmark/live-fm-bench/" prefix (no .c extension, path only).
+    191 Success, 36 Error. Col 1: Run Time, Col 2: Success/Error.
+  - live-fm-bench.json: 360 JSON entries with full benchmark metadata.
+    134 filefolder_name dirs absent from disk. Key fields:
+    filefolder_name, file_name, input, output, source, instruct.
+    217/226 "input" strings differ from on-disk .c content.
+    Do NOT trust "input" field — use .c files on disk.
+  - targets.txt: 227-entry authoritative benchmark list.
+    Format: <category>/<name>/<name>.c. No trailing newline.
+    (f.read().splitlines() returns 227; wc -l returns 226)
+  - record.csv: Broken CSV (header concatenated with first data row,
+    no newline separator). DO NOT APPEND — header is "file_path,result,is_nested".
+    Schema: col 0 = file path, col 1 = "success"/"error", col 2 = "True"/"False".
+  - cfiles.list: 240 entries, 14 dead paths. Contains stale entries like
+    "./loops/n.c11/n11.c" (wrong path "n.c11"), "./loops/eureka_01-2/",
+    and "./loops/matrix-1/" — none in targets.txt.
+  - names_1.txt + names_2.txt: 109 + 116 = 225 combined.
+    Missing: array-tiling/mlceu2/mlceu2.c.
+    Format: my_benchmark/live-fm-bench/<category>/<name>/<name>.c
+
+INVARIANTS FOR PHASE 4
+-----------------------
+1. check_nested_loops.py is the AUTHORITATIVE nested-loop detector.
+   Its results override convert_to_ibmc.py's inline check.
+2. convert_assume.py is BROKEN on clone due to hardcoded path at line 115.
+3. record.csv has a known format bug (no newline after header — one
+   malformed line total). Do NOT append to it.
+4. targets.txt has 227 entries but NO trailing newline (wc -l says 226).
+5. cfiles.list has DEAD entries not in targets.txt.
+6. live-fm-bench.json has more entries (360) than actual benchmarks (227)
+   — 134 JSON entries have missing directories on disk.
+7. 217/226 JSON "input" strings differ from on-disk .c content.
+8. names_1.txt + names_2.txt cover 225/227 targets (missing mlceu2).

@@ -1,0 +1,24 @@
+//svcomp_css2003
+int main(){
+    int i;
+    int j;
+    int k;
+
+    //pre-condition
+    i = 1;
+    j = 1;
+    assume(k >= 0);
+    assume(k <= 1);
+
+    //loop-body
+    int unknown1, unknown2;
+    while(unknown1!=0){
+        unknown1 = unknown2;
+        i = i + 1;
+        j = j + k;
+        k = k - 1;
+    }
+
+    //post-condition
+    assert(i >= 1);
+}
