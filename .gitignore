@@ -1,18 +1,48 @@
-__pycache__
+# Python bytecode and packaging
 __pycache__/
-*.pyc
-.history
-.vscode
-output/
-.ipynb_checkpoints
-LOG_*
-all_dataset
+*.py[cod]
+*$py.class
+.eggs/
+*.egg-info/
+/build/
+/dist/
 
-nested_test/LOG_*
+# Virtual environments and local tool caches
+.venv/
+venv/
+env/
+.env/
+.uv-cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
 
-no_need
+# Local credentials; placeholder templates may be committed
+.env
+.env.*
+!.env.example
+!.env.*.example
 
-*.pickle
+# Experiment results, temporary validation, and external benchmark corpora
+/output/
+/.validation/
+LOG_*/
+*.log
+/dataset/
+/datasets/
+/all_dataset/
+/old_benchmark/
+
+# Generated verification and preprocessing files
 assert_infilled.c
 assert_marked.c
 *_assert_infilled.c
@@ -21,8 +51,14 @@ assert_marked.c
 *_frama_infilled.c
 *_frama_marked.c
 fmagent_*
+/no_need/
+/names.txt
 
-old_benchmark
-.agents
-*.ps1
-names.txt
+# Local editor, assistant, and operating-system files
+/.agents/
+/.history/
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
