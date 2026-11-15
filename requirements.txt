@@ -1,8 +1,8 @@
-tree-sitter==0.21.3
+tree-sitter==0.25.2
+tree-sitter-c==0.24.1
 langgraph==0.4.3
-langchain-community==0.3.24
 langchain-core==0.3.64
+langchain-openai==0.3.21
 z3-solver==4.15.0.0
 black==25.1.0
 pyparsing==3.2.3
-langchain_deepseek==0.1.3

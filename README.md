@@ -1,231 +1,148 @@
 # context4inv
 
-`context4inv` is an experimental project for generating and verifying loop invariants for C programs. It uses Tree-sitter to parse C source code, LangGraph to organize a multi-stage analysis workflow, and a combination of large language models and the Z3 SMT solver to generate candidate invariants, check counterexamples, iteratively refine results, and produce logs, Z3 verification scripts, and invariant outputs for each function and loop.
+为 C 程序生成并验证循环不变式的实验工具。Tree-sitter 将受支持的 C 语句转换为 IR，LangGraph 编排候选生成与反例反馈，Z3 验证初始化、保持性及后置断言。
 
-## Project Overview
+## 安装与运行
 
-The main entry point is `neo_main.py`. During execution, the system reads a C source file and processes it through the following workflow:
+要求 Python 3.12 及以上；当前在 Windows、Python 3.13.5 下验证。C 语法包使用预编译 wheel，无需本地 C 编译器。
 
-1. Parse the C program and build the function call graph and inverted call graph.
-2. Traverse the program function by function, identifying loops, branches, assignments, array accesses, and `assume` / `assert` annotations.
-3. Generate Z3 verification templates for each loop.
-4. Use an LLM to generate candidate loop invariants.
-5. Use Z3 to check initialization, preservation, and postcondition-related properties.
-6. When verification fails, feed counterexamples back to the LLM for refinement.
-7. Write logs, candidate invariants, final results, and verification scripts to the experiment output directory.
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock
+```
 
-The codebase is organized into several analysis layers:
+`requirements.txt` 声明直接依赖，`requirements.lock` 固定完整依赖及下载校验值。开发时可以用 `pip install -e .` 安装命令行入口；本地 FMA 模型的额外依赖通过 `pip install -e '.[local]'` 安装。
 
-- `nodes/global_level/`: builds the global function call graph.
-- `nodes/func_level/`: parses functions, locates loop paths, and identifies key variables.
-- `nodes/loop_level/`: coordinates loop-level experiments, generates verification templates, and merges results.
-- `nodes/task1/`, `nodes/task2/`, `nodes/task12/`, `nodes/task3/`, `nodes/task4/`: implement different invariant-generation, counterexample-feedback, and SMT-verification strategies.
-- `utils/cparser/`: Tree-sitter-based C parsing support.
-- `utils/solve_smt/`: converts the intermediate representation into Z3 verification code.
-- `utils/*/`: wrappers for different LLM backends, such as DeepSeek, Qwen, OpenAI, Zhipu, and others.
-- `prompt_templates/`: prompt templates used by the LLM workflow.
+默认使用 DeepSeek，通过环境变量配置 key：
 
-## Dataset Description
+```powershell
+$env:DEEPSEEK_API_KEY = '<DeepSeek API key>'
+.\.venv\Scripts\python.exe .\context4inv.py --path .\examples\branch.c
+```
 
-This repository does not include a full benchmark dataset. The experiment input is a single C source file, and a dataset can be organized as a collection of `.c` files, such as loop-verification benchmarks, manually written test cases, or C programs collected from other projects.
+模型配置集中在 `utils/llm.py`，仅在实际运行时创建模型，导入模块或查看帮助不需要 key。
 
-Each sample should preferably follow these conventions:
+| `--provider` | key 环境变量 | 默认模型 |
+| --- | --- | --- |
+| `deepseek`（默认） | `DEEPSEEK_API_KEY` | `deepseek-chat` |
+| `openai` | `OPENAI_API_KEY` | `gpt-4.1-mini` |
+| `qwen` | `DASHSCOPE_API_KEY` | `qwen-plus` |
+| `zhipu` | `ZHIPUAI_API_KEY` | `glm-4-flash` |
+| `fma` | 无；需安装 local 额外依赖 | `fm-universe/qwen2.5-7b-fma` |
 
-- The file extension is `.c`.
-- The program contains C function definitions that can be parsed by the project.
-- Loops may be written as `while`, `for`, or `do while` loops.
-- Special comments can be used to express preconditions and postconditions:
-  - `//@ assume(...)`: path assumptions or input constraints.
-  - `//@ assert(...)`: target properties to be verified.
-- Expressions should stay within the integer, array, comparison, and logical operations currently supported by the parser and Z3 conversion logic.
+在线服务统一通过 OpenAI 兼容接口调用，可用 `--model`、`--base-url` 覆盖默认值。环境变量 `CONTEXT4INV_PROVIDER`、`CONTEXT4INV_MODEL`、`CONTEXT4INV_BASE_URL` 也可配置；命令行参数优先。本地 FMA 模型仅在选中该 provider 时加载。
 
-A minimal example:
+```powershell
+.\.venv\Scripts\python.exe .\context4inv.py --help
+.\.venv\Scripts\python.exe .\context4inv.py --path .\examples\implication.c --mode task12_only --llm-retry-limit 3
+.\.venv\Scripts\python.exe .\context4inv.py --path .\examples\nested_loops.c --provider deepseek --model deepseek-reasoner
+```
+
+## 工作流程与实验模式
+
+程序按被调用者优先的顺序访问已定义函数，逐函数隔离状态，并按从内到外的顺序处理嵌套循环。
+
+- `per_variable` 按修改变量生成候选，`combined` 生成变量间关系的候选；两条分支并行执行。
+- `joint` 一次生成混合候选，可作为前两条生成分支的替代。
+- 候选经过初始化与保持性检查，再由 `postcondition` 验证其合取是否足以证明后置断言。
+- 验证失败时，模型收到具体反例或 Z3 的 `unknown` 原因。必要时，`strengthening` 增强前序循环，并重新验证受影响循环。
+
+| `--mode` | 行为 |
+| --- | --- |
+| `full` | 按变量生成 + 关系式生成、反例反馈、后置验证和前序循环增强 |
+| `task12_only` | 使用一次性混合候选生成，保留后续验证 |
+| `no_iterative` | 关闭本地候选固定点迭代，保留模型反例反馈 |
+| `no_task4_pre_enhance` | 关闭前序循环增强，后置条件无法证明时报告失败 |
+
+`--llm-retry-limit` 控制每次请求的最大尝试次数，以及每个阶段的模型生成轮数上限；初次候选生成计一轮。后置验证阶段先检查已有不变式，再按此上限追加生成。API 异常、JSON 格式错误和结构错误都会消耗请求次数。
+
+## 输入与语义范围
+
+用特殊注释标记假设与目标断言：
 
 ```c
 void example(int n) {
     int i = 0;
     //@ assume(n >= 0)
     while (i < n) {
-        i = i + 1;
+        i++;
     }
     //@ assert(i == n)
 }
 ```
 
-For batch experiments, place multiple C files in the same directory, for example:
+支持整数/实数表达式、数组读写、声明与初始化、复合赋值、自增自减、`if/else`、`while/for`、嵌套循环，以及循环结束到断言之间的赋值。多个紧邻断言按合取验证。不变式支持逻辑运算、量词及 `old(expr)`；`old(expr)` 指目标循环完成初始化、第一次检查条件之前的值，内外层循环各自有独立入口快照。
+
+验证采用数学整数、实数和 Z3 数组抽象；赋值中的实数转整数按向零截断处理。不模拟 C 的有限位宽溢出、完整整数除法规则或指针别名。`do while`、`break/continue`、提前返回、变量遮蔽、复杂结构体和函数调用执行语义尚未支持，会明确报错；调用图排序不代表已实现跨函数摘要。纯粹的函数末尾 `return` 可以解析。断言须位于相应循环所在语句块中；工具检查的是断言的部分正确性，不证明循环终止。
+
+## 输出
+
+默认每次运行写入独立目录：`output/<输入文件名>/<时间戳>/`。可用 `--output-dir` 指定一个尚不存在的目录。重新运行不会删除已有实验结果。
 
 ```text
-benchmarks/
-  001.c
-  002.c
-  003.c
-```
-
-Then call `neo_main.py --path <file>` for each file. The current entry script is designed for single-file execution, so batch scheduling should be handled by an external script.
-
-## Environment Setup
-
-Python 3.10 or newer is recommended. Install dependencies inside a virtual environment:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-On Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-Main dependencies include:
-
-- `tree-sitter`: parses C source code.
-- `langgraph`: organizes the multi-node agent workflow.
-- `langchain-core`, `langchain-community`: provide message and LLM invocation interfaces.
-- `langchain_deepseek`: the default DeepSeek backend.
-- `z3-solver`: SMT verification.
-- `black`, `pyparsing`: formatting and expression-parsing utilities.
-
-## LLM Configuration
-
-By default, `neo_main.py` uses:
-
-```python
-from utils.ds import llm
-```
-
-The corresponding configuration file is `utils/ds/__init__.py`. Before running experiments, configure a valid API key there:
-
-```python
-token = "sk-..."
-```
-
-You can also switch to another backend. `neo_main.py` already contains several candidate imports:
-
-```python
-# from utils.zhipu import llm
-# from utils.qwen import llm
-from utils.ds import llm
-# from utils.openai import llm
-# from utils.ollama import llm
-```
-
-To switch models, comment out the current import and enable the target backend. Also make sure the corresponding `utils/<backend>/__init__.py` file has the correct API key, model name, and service endpoint settings.
-
-## Starting an Experiment
-
-After preparing a C file, run the following command from the project root:
-
-```bash
-python neo_main.py --path /path/to/example.c
-```
-
-Windows example:
-
-```powershell
-python .\neo_main.py --path E:\benchmarks\001.c
-```
-
-You can also set the LLM retry limit:
-
-```bash
-python neo_main.py --path /path/to/example.c --llm-retry-limit 5
-```
-
-Note: the current `main()` function sets the experiment configuration internally as follows:
-
-```python
-experiment_mode = "full"
-llm_retry_limit = 6
-```
-
-For ablation experiments, edit `experiment_mode` in `neo_main.py`. The code comments list the following available modes:
-
-- `full`: runs the full workflow.
-- `task12_only`: uses only the task12-related workflow.
-- `no_iterative`: disables iterative counterexample feedback.
-- `no_task4_pre_enhance`: a reserved experiment-mode name; verify that the current node logic fully supports it before use.
-
-## Experiment Outputs
-
-For an input file:
-
-```text
-/path/to/example.c
-```
-
-The program creates an output directory next to the input file:
-
-```text
-/path/to/LOG_example/
-```
-
-The output directory is organized by function and loop:
-
-```text
-LOG_example/
-  FUNC_<function_name>/
-    LOOP_<loop_id>/
-      loop_code.txt
+output/<name>/<run>/
+  workflow.mmd                 # LangGraph 流程图
+  invariants.json              # 按函数、循环汇总的已验证不变式
+  FUNC_<function>/
+    FINAL_code.c              # 标注循环不变式的函数代码
+    LOOP_<id>/
+      tmp_code.c
       z3_template_pre.py
-      z3_template_post.py
-      inv.json
-      post_inv.json
-      task12.log
-      each.log
-      combined.log
-      post.log
+      z3_template_post.py      # 存在后置断言时生成
+      invariants_pre.json
+      invariants_post.json
+      run_*.log
       err.log
-      verify/
+      verify/                 # 每轮候选的实际 Z3 检查脚本及反例
 ```
 
-Common output files:
+模型会看到完整循环源码及已验证内循环的局部不变式，保留初始化与更新。反例反馈包括逐个候选被拒的原因、失败阶段及入口快照值，避免只看到整体断言失败。每次模型请求和响应都会及时保存到对应 `run_*.log`，中途失败也能排查。非法或类型不匹配的候选会单独剔除并记入 `err.log`，Z3 的反例、`unknown`、检查脚本执行错误和超时分别处理。需要调试输出时设置 `DPRINT_ENABLED=1`；位置标注可通过 `DPRINT_LOCATION=1` 开启。
 
-- `loop_code.txt`: code snippet and context for the current loop.
-- `z3_template_pre.py`: Z3 template for precondition-related verification tasks.
-- `z3_template_post.py`: Z3 template for postcondition-related verification tasks.
-- `inv.json`: loop invariant results.
-- `post_inv.json`: invariant results related to postcondition enhancement.
-- `*.log`: LLM conversations, candidate generation logs, and counterexample-feedback logs.
-- `err.log`: errors from parsing, formatting, or SMT solving.
-- `verify/`: generated verification scripts after filling templates.
+## 阅读代码
 
-In addition, the workflow initialization step generates the following file in the current working directory:
+建议先读 `context4inv.py` 的 `run()`，再依次查看 `program/workflow.py`、`functions/workflow.py`、`loops/workflow.py`。各生成阶段均用 `generate_candidates.py`、`refine_candidates.py`、`verify_candidates.py` 表达生成、反馈修正、验证三个职责；`workflow.py` 明确连接这些步骤，包入口只导出流程构建函数。
 
 ```text
-igent.mmd
+context4inv.py               命令行与单文件运行入口
+nodes/
+  ir.py                     C 语句的中间表示
+  state.py                  程序、函数、循环及各阶段状态
+  config.py                 实验模式与重试选项
+  artifacts.py              输出路径与显式目录初始化
+  source_rendering.py       保留源码语义的循环标注
+  formulas.py               不变式合取与检查器表达式编译
+  generation.py             模型请求上下文与会话日志
+  verification.py           候选验证和固定点迭代
+  feedback.py               被拒候选、失败阶段与反例格式化
+  program/                  调用图与函数调度
+  functions/                C → IR、修改变量和循环路径
+  loops/                    循环调度、验证模板和结果合并
+  per_variable/             按变量生成候选
+  combined/                 生成变量间关系的候选
+  joint/                    一次生成混合候选
+  postcondition/            证明后置断言并补充候选
+  strengthening/            增强前序循环并重验受影响循环
+utils/
+  c_parser.py               Tree-sitter C 与源码词法辅助
+  c_types.py                受支持的标量及数组类型约定
+  debug.py                  可选调试输出
+  expr_parser/
+    ast.py                  表达式的数据结构
+    parser.py               C 表达式与逻辑公式的语法
+    rendering.py            AST → Z3 表达式
+  fol_parser/               一阶逻辑及带作用域的 old(expr) 解析
+  smt/
+    models.py               具名验证输入、SSA 快照和求解结果
+    encoding.py             IR → SSA 约束
+    codegen.py              初始化、保持性、后置断言义务
+    checker_template.py     独立 Z3 检查脚本
+    runner.py               子进程执行与结果分类
+  llm.py                    模型配置、响应校验和有限重试
+  local_model.py            可选本地模型适配器
+prompt_templates/           按生成阶段命名的提示词
+examples/                   小型输入样例与来源说明
 ```
 
-This file contains a Mermaid graph of the LangGraph workflow and can be used to inspect node connections.
+`WorkflowState` 按 `program`、`function`、`loop` 和各生成阶段划分数据，节点返回自己更新的部分。`LoopStateMaps` 明确区分入口、迭代前、迭代后和循环出口的 SSA 符号；`SolverResult`、`ProofFailure`、`CandidateRejection` 用具名字段传递结果与反例。
 
-## Batch Running
-
-If a dataset contains multiple `.c` files, use a simple script to run them one by one:
-
-```bash
-for file in benchmarks/*.c; do
-  python neo_main.py --path "$file"
-done
-```
-
-Windows PowerShell:
-
-```powershell
-Get-ChildItem E:\benchmarks -Filter *.c | ForEach-Object {
-    python .\neo_main.py --path $_.FullName
-}
-```
-
-Each sample produces its own `LOG_<filename>/` directory. You can later collect and summarize `inv.json`, `post_inv.json`, and `err.log` across all runs.
-
-## Notes
-
-- The project deletes and recreates the matching `LOG_<filename>/` output directory at the start of each run. Back up important logs before rerunning an experiment.
-- Function calls in the input C file must have corresponding declarations or definitions; otherwise, the global call-graph check may fail.
-- Complex pointer usage, complex structs, macro expansion, and some C syntax may be outside the current parser and verifier support.
-- LLM calls may incur cost and depend on network availability, API keys, model rate limits, and service stability.
-- To reduce debug output, set the environment variable `DPRINT_ENABLED=0` before running.
+固定点验证会利用已经接受的不变式重新检查未决候选，直到没有新增结果。`unknown` 表示求解未得出结论，语法或类型错误表示候选无效；它们均不视为已证明或真实反例。

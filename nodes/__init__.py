@@ -1,3 +1,1 @@
-from nodes.common import (
-    AgentState
-)
+"""C loop invariant generation workflow."""

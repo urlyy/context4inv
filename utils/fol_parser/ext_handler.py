@@ -1,42 +1,107 @@
-import re
+"""Resolve old(expr) against loop-entry symbols without serializing the AST."""
 
-# only used in loop_invariant && assert, not in assume
-def replace_old(s: str, old_counter: dict[str,int], declared_vars):
-    # 过滤字典
-    new_dict = {k: old_counter[k] for k in declared_vars if k in old_counter}
-    
-    # 匹配 old(var) 或 old(var[...])
-    pattern = r'old\(\s*([a-zA-Z_]\w*)(\[[^\]]*\])?\s*\)'
+from utils.expr_parser.ast import (
+    ArrayAccess,
+    BinaryExpression,
+    BooleanLiteral,
+    Expression,
+    NumberLiteral,
+    OldExpression,
+    Quantifier,
+    SnapshotVariable,
+    UnaryExpression,
+    Variable,
+    walk_expression,
+)
 
-    def repl(match):
-        var = match.group(1)
-        bracket = match.group(2) or ''
-        if var not in new_dict:
-            return f"{var}{bracket}"
-            # raise KeyError(f"inv: {s}, 变量 {var} 不在字典{new_dict}中")
-        return f"{var}_{new_dict[var]}{bracket}"
-
-    return re.sub(pattern, repl, s)
-
-def replace_old_for_solve(s: str, key_vars: set[str]):
-    # return s
-    pattern = r'old\(\s*([a-zA-Z_]\w*)(\[[^\]]*\])?\s*\)'
-    def repl(match):
-        var = match.group(1)
-        bracket = match.group(2) or ''
-        if var not in key_vars:
-            return f"{var}{bracket}"
-            # raise KeyError(f"inv: {s}, key_vars: {key_vars}, 变量 {var} 不在字典中")
-        return f"__old_{var}{bracket}"
-    return re.sub(pattern, repl, s)
+from .parser import parse_fol
 
 
-if __name__ == "__main__":
-    # 示例
-    mapping = {"y": 1, "z": 5, "temp123": 9, "arr": 1}
-    expr = "old(y) + old(z) + old(temp123) + old(arr[1])"
-    print(replace_old(expr, mapping, {"y","temp123","z", "arr"}))
-    # 输出: x = y_1 + z_5 + temp123_9 + arr_1[1]
+class LoopEntryResolver:
+    """Keep bound variables local; freeze only free variables inside old(expr)."""
 
-    key_vars = {"y","temp123","z", "arr"}
-    print(replace_old_for_solve(expr, key_vars))
+    def __init__(self, expression: Expression, entry_symbols: dict[str, str]):
+        self.entry_symbols = entry_symbols
+        self.used_names = set(entry_symbols) | set(entry_symbols.values())
+        for node in walk_expression(expression):
+            if isinstance(node, Variable):
+                self.used_names.add(node.name)
+            elif isinstance(node, SnapshotVariable):
+                self.used_names.add(node.symbol)
+
+    def fresh_bound_name(self) -> str:
+        index = len(self.used_names)
+        while (name := f"__old_bound_{index}") in self.used_names:
+            index += 1
+        self.used_names.add(name)
+        return name
+
+    def resolve(
+        self, expression: Expression, bound_names=None, *, at_entry=False
+    ) -> Expression:
+        bound_names = bound_names or {}
+        if isinstance(expression, SnapshotVariable):
+            return expression
+        if isinstance(expression, Variable):
+            if expression.name in bound_names:
+                return Variable(bound_names[expression.name])
+            if at_entry and expression.name in self.entry_symbols:
+                return SnapshotVariable(self.entry_symbols[expression.name])
+            return expression
+        if isinstance(expression, (NumberLiteral, BooleanLiteral)):
+            return expression
+        if isinstance(expression, OldExpression):
+            return self.resolve(expression.operand, bound_names, at_entry=True)
+        if isinstance(expression, UnaryExpression):
+            operand = self.resolve(expression.operand, bound_names, at_entry=at_entry)
+            return UnaryExpression(expression.operator, operand, expression.c_semantics)
+        if isinstance(expression, ArrayAccess):
+            return ArrayAccess(
+                self.resolve(expression.array, bound_names, at_entry=at_entry),
+                self.resolve(expression.index, bound_names, at_entry=at_entry),
+                expression.c_semantics,
+            )
+        if isinstance(expression, BinaryExpression):
+            return BinaryExpression(
+                self.resolve(expression.left, bound_names, at_entry=at_entry),
+                expression.operator,
+                self.resolve(expression.right, bound_names, at_entry=at_entry),
+                expression.c_semantics,
+            )
+        if isinstance(expression, Quantifier):
+            return self.resolve_quantifier(expression, bound_names, at_entry=at_entry)
+        raise TypeError(f"Unsupported annotation: {type(expression).__name__}")
+
+    def resolve_quantifier(
+        self, expression: Quantifier, bound_names, *, at_entry
+    ) -> Quantifier:
+        # Alpha-renaming prevents a generated snapshot name from becoming bound.
+        local_names = {
+            variable.name: self.fresh_bound_name() for variable in expression.variables
+        }
+        body = self.resolve(
+            expression.body, bound_names | local_names, at_entry=at_entry
+        )
+        variables = tuple(Variable(name) for name in local_names.values())
+        return Quantifier(expression.symbol, variables, body)
+
+
+def resolve_entry_symbols(expression, entry_symbols):
+    tree = parse_fol(expression)
+    return LoopEntryResolver(tree, entry_symbols).resolve(tree)
+
+
+def replace_old(expression, old_counter, declared_vars):
+    """Bind old(expr) to the state before this particular loop invocation."""
+    symbols = {
+        name: f"{name}_{old_counter[name]}"
+        for name in declared_vars
+        if name in old_counter
+    }
+    return resolve_entry_symbols(expression, symbols)
+
+
+def replace_old_for_solve(expression, key_vars):
+    """Bind old(modified_var) to the candidate checker's fixed entry parameter."""
+    symbols = {name: f"__old_{name}" for name in key_vars}
+    return resolve_entry_symbols(expression, symbols)
