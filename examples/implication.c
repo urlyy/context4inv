@@ -1,16 +1,11 @@
-//SyGuG2018_brett
-int main(){
-    int p;
-    int c;
-    int cl;
-    
-    //pre-condition
-    (p = 0);
-    (c = cl);
+void count_down(int cl) {
+    int p = 0;
+    int c = cl;
 
-    while(((p < 4) && (cl > 0))){
-        (cl = cl - 1);
-        (p = p + 1);
+    while (p < 4 && cl > 0) {
+        cl -= 1;
+        p += 1;
     }
-    //@ assert((p != 4)=>(c < 4))
+
+    //@ assert((p != 4) => (c < 4))
 }
