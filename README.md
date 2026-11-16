@@ -6,14 +6,15 @@ context4inv 是一个为 C 程序自动生成并验证循环不变式的实验�
 
 ## 依赖安装
 
-需要 Python 3.12 及以上。以下命令在项目根目录执行，以 Windows PowerShell 为例：
+需要 Python 3.12 及以上。以下命令在 Linux shell 中执行，工作目录为项目根目录：
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.lock
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.lock
 ```
 
-Linux/macOS 使用 `.venv/bin/python` 替换上述 Python 路径。`requirements.lock` 固定完整依赖版本，`requirements.txt` 列出直接依赖；C 语法解析使用预编译包，无需本地 C 编译器。
+`requirements.lock` 固定完整依赖版本，`requirements.txt` 列出直接依赖；C 语法解析使用预编译包，无需本地 C 编译器。
 
 ## 使用示例
 
@@ -34,9 +35,9 @@ void count_to(int n) {
 
 默认使用 DeepSeek。配置 API key 后运行：
 
-```powershell
-$env:DEEPSEEK_API_KEY = '<DeepSeek API key>'
-.\.venv\Scripts\python.exe .\context4inv.py --path .\examples\demo.c
+```bash
+export DEEPSEEK_API_KEY='<DeepSeek API key>'
+python context4inv.py --path examples/demo.c
 ```
 
 工具会尝试生成例如 `0 <= i && i <= n` 的不变式，检查其是否成立，并验证它能否推出 `i == n`。实际候选由模型生成。
@@ -45,6 +46,6 @@ $env:DEEPSEEK_API_KEY = '<DeepSeek API key>'
 
 可通过 `--model` 指定模型、`--output-dir` 指定新的输出目录；完整参数见：
 
-```powershell
-.\.venv\Scripts\python.exe .\context4inv.py --help
+```bash
+python context4inv.py --help
 ```
