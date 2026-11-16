@@ -2,7 +2,7 @@
 
 C expression nodes request scalar Boolean/numeric promotion when rendered.
 Annotations keep mathematical Boolean logic. Number literals retain their exact
-source text, so parsing never rounds a decimal through Python float.
+value without rounding through Python float; C octal integers normalize to decimal.
 """
 
 from collections.abc import Iterator
@@ -97,3 +97,20 @@ def bound_variable_names(expression: Expression) -> set[str]:
         if isinstance(node, Quantifier)
         for variable in node.variables
     }
+
+
+def free_variable_names(expression: Expression) -> set[str]:
+    """Collect source variables, preserving quantifier scope and old(expr) operands."""
+    names = set()
+    pending = [(expression, frozenset())]
+    while pending:
+        node, bound_names = pending.pop()
+        if isinstance(node, Variable):
+            if node.name not in bound_names:
+                names.add(node.name)
+        elif isinstance(node, Quantifier):
+            local_names = bound_names | {variable.name for variable in node.variables}
+            pending.append((node.body, local_names))
+        else:
+            pending.extend((child, bound_names) for child in child_expressions(node))
+    return names

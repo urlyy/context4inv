@@ -1,12 +1,10 @@
 """Translate the supported C statement subset into verification IR."""
 
-import re
-
+from nodes.functions.annotations import parse_annotation
 from nodes.ir import (
     ArrayAssignment,
     Assertion,
     Assignment,
-    Assumption,
     Conditional,
     Declaration,
     Loop,
@@ -45,6 +43,7 @@ class FunctionParser:
     def __init__(self):
         self.variable_types: dict[str, CType] = {}
         self.loop_syntax_nodes: list[Node] = []
+        self.array_parameters: set[str] = set()
 
     @staticmethod
     def _unsupported(node: Node, detail: str = ""):
@@ -80,6 +79,14 @@ class FunctionParser:
         return type_name
 
     def parse_declaration(self, node: Node, parameter=False) -> list[Statement]:
+        for child in node.named_children:
+            if child.type == "storage_class_specifier" and source_text(child) in (
+                "static",
+                "extern",
+                "_Thread_local",
+                "thread_local",
+            ):
+                self._unsupported(child, "non-automatic storage duration")
         declarators = node.children_by_field_name("declarator")
         if (
             parameter
@@ -101,6 +108,10 @@ class FunctionParser:
             initializer = declarator.child_by_field_name("value")
             declarator = declarator.child_by_field_name("declarator")
         is_array = declarator.type in ("array_declarator", "pointer_declarator")
+        if declarator.type == "array_declarator":
+            size = declarator.child_by_field_name("size")
+            if size is not None:
+                self.read_pure_expression(size)
         name_node = (
             declarator.child_by_field_name("declarator") if is_array else declarator
         )
@@ -112,6 +123,8 @@ class FunctionParser:
         self.variable_types[name] = (
             (VAR_POINTER, (type_name,)) if is_array else (type_name,)
         )
+        if parameter and is_array:
+            self.array_parameters.add(name)
         declaration_type = Parameter if parameter else Declaration
         statements = [declaration_type(name)]
         if initializer is None:
@@ -151,7 +164,12 @@ class FunctionParser:
 
     def make_assignment(self, left: Node, right: str):
         if left.type == "identifier":
-            return Assignment(source_text(left), right)
+            target = source_text(left)
+            if self.variable_types[target][0] == VAR_POINTER:
+                self._unsupported(
+                    left, "pointer reassignment and whole-array assignment"
+                )
+            return Assignment(target, right)
         if left.type == "subscript_expression":
             array = left.child_by_field_name("argument")
             if array.type != "identifier":
@@ -223,22 +241,6 @@ class FunctionParser:
             values.update(identifiers_in_expression(guard))
         return Loop(guard, body, depth, loop_id, None, dependencies)
 
-    def parse_annotation(self, node: Node):
-        text = source_text(node)
-        match = re.match(r"//\s*@\s*(assume|assert)\s*\(", text)
-        if match is None:
-            return None
-        depth = 1
-        for index in range(match.end(), len(text)):
-            if text[index] == "(":
-                depth += 1
-            elif text[index] == ")":
-                depth -= 1
-            if depth == 0:
-                expression = text[match.end() : index].strip().rstrip(";").rstrip()
-                return (Assumption if match[1] == "assume" else Assertion)(expression)
-        raise ValueError(f"Unbalanced annotation at line {node.start_point.row + 1}")
-
     def _attach_postcondition(self, statements, annotation, source):
         for loop_index in range(len(statements) - 1, -1, -1):
             if isinstance(statements[loop_index], Loop):
@@ -260,7 +262,7 @@ class FunctionParser:
         children = node.named_children
         for index, child in enumerate(children):
             if child.type == "comment":
-                annotation = self.parse_annotation(child)
+                annotation = parse_annotation(child)
                 if isinstance(annotation, Assertion):
                     self._attach_postcondition(statements, annotation, child)
                 elif annotation is not None:
@@ -272,7 +274,7 @@ class FunctionParser:
                     self._unsupported(child, "early return")
                 for value in child.named_children:
                     self.read_pure_expression(value)
-                if any(self.parse_annotation(item) is not None for item in remaining):
+                if any(parse_annotation(item) is not None for item in remaining):
                     self._unsupported(child, "verification annotation after return")
                 break
             else:
@@ -322,6 +324,8 @@ class FunctionParser:
         for parameter in parameters.named_children:
             if parameter.type != "comment":
                 body.extend(self.parse_declaration(parameter, parameter=True))
+        if len(self.array_parameters) > 1:
+            self._unsupported(parameters, "multiple pointer/array parameters may alias")
         body.extend(
             self.parse_block(function.child_by_field_name("body"), 0, terminal=True)
         )

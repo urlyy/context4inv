@@ -9,7 +9,7 @@ from utils.c_parser import source_text
 def _verified_loop_comment(
     loop_index: int, invariants: set[str], indentation: str
 ) -> str:
-    invariant = conjoin_invariants(invariants)
+    invariant = " ".join(conjoin_invariants(invariants).splitlines())
     return (
         f"//@ LOOP_{loop_index} verified invariant: {invariant}\n{indentation}"
         f"// old(var) above refers to LOOP_{loop_index} entry after its initializer.\n{indentation}"

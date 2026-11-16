@@ -20,8 +20,15 @@ from .parser import parse_fol
 class LoopEntryResolver:
     """Keep bound variables local; freeze only free variables inside old(expr)."""
 
-    def __init__(self, expression: Expression, entry_symbols: dict[str, str]):
+    def __init__(
+        self,
+        expression: Expression,
+        entry_symbols: dict[str, str],
+        *,
+        complete_entry_state=False,
+    ):
         self.entry_symbols = entry_symbols
+        self.complete_entry_state = complete_entry_state
         self.used_names = set(entry_symbols) | set(entry_symbols.values())
         for node in walk_expression(expression):
             if isinstance(node, Variable):
@@ -47,6 +54,8 @@ class LoopEntryResolver:
                 return Variable(bound_names[expression.name])
             if at_entry and expression.name in self.entry_symbols:
                 return SnapshotVariable(self.entry_symbols[expression.name])
+            if at_entry and self.complete_entry_state:
+                raise ValueError(f"No loop-entry value for variable: {expression.name}")
             return expression
         if isinstance(expression, (NumberLiteral, BooleanLiteral)):
             return expression
@@ -86,9 +95,11 @@ class LoopEntryResolver:
         return Quantifier(expression.symbol, variables, body)
 
 
-def resolve_entry_symbols(expression, entry_symbols):
+def resolve_entry_symbols(expression, entry_symbols, *, complete_entry_state=False):
     tree = parse_fol(expression)
-    return LoopEntryResolver(tree, entry_symbols).resolve(tree)
+    return LoopEntryResolver(
+        tree, entry_symbols, complete_entry_state=complete_entry_state
+    ).resolve(tree)
 
 
 def replace_old(expression, old_counter, declared_vars):
@@ -98,10 +109,10 @@ def replace_old(expression, old_counter, declared_vars):
         for name in declared_vars
         if name in old_counter
     }
-    return resolve_entry_symbols(expression, symbols)
+    return resolve_entry_symbols(expression, symbols, complete_entry_state=True)
 
 
 def replace_old_for_solve(expression, key_vars):
     """Bind old(modified_var) to the candidate checker's fixed entry parameter."""
-    symbols = {name: f"__old_{name}" for name in key_vars}
+    symbols = {name: f"__entry_values[{name!r}]" for name in key_vars}
     return resolve_entry_symbols(expression, symbols)

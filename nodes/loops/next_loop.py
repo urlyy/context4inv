@@ -1,7 +1,5 @@
 """Advance loop analysis and prepare the source context shown to the model."""
 
-import re
-
 from langchain_core.messages import SystemMessage
 
 from nodes.artifacts import (
@@ -14,17 +12,15 @@ from nodes.ir import ArrayAssignment, Assignment, Conditional, Loop
 from nodes.source_rendering import render_function_source
 from nodes.state import WorkflowState
 from prompt_templates import loop_code_prompt
+from utils.expr_parser.ast import free_variable_names
+from utils.expr_parser.parser import parse_expression
 
 
 def find_counterexample_variables(statements, variable_names):
     variables = set()
 
     def condition_variables(condition):
-        return {
-            name
-            for name in variable_names
-            if re.search(rf"\b{re.escape(name)}\b", condition)
-        }
+        return free_variable_names(parse_expression(condition)) & set(variable_names)
 
     for statement in statements:
         if isinstance(statement, Assignment):

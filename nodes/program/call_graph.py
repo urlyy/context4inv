@@ -6,6 +6,7 @@ from pathlib import Path
 
 from langchain_core.messages import SystemMessage
 
+from nodes.functions.annotations import parse_annotation
 from nodes.state import WorkflowState
 from prompt_templates import fol_requirement_prompt
 from utils.c_parser import init_tree, source_text
@@ -44,6 +45,20 @@ def analyze_program(state: WorkflowState, config) -> WorkflowState:
     source = Path(config["configurable"]["code_path"]).read_text(encoding="utf-8")
     tree, _ = init_tree(source)
     syntax_nodes = list(_walk_syntax(tree.root_node))
+    for node in syntax_nodes:
+        if node.type.startswith("preproc_"):
+            raise NotImplementedError("C preprocessing is not supported")
+        if node.type == "comment" and parse_annotation(node) is not None:
+            enclosing_function = node.parent
+            while (
+                enclosing_function is not None
+                and enclosing_function.type != "function_definition"
+            ):
+                enclosing_function = enclosing_function.parent
+            if enclosing_function is None or node.parent.type != "compound_statement":
+                raise NotImplementedError(
+                    "Verification annotations must be inside a function statement block"
+                )
     declared_functions = {
         _function_name(node)
         for node in syntax_nodes

@@ -69,6 +69,28 @@ def mathematical_comparison_chain(tokens):
     return expression
 
 
+def numeric_literal(source, location, tokens, *, c_semantics):
+    """Normalize C octal integers; unsupported literal forms must never be truncated.
+
+    Decimal integer/real literals and unsuffixed octal integers are supported.
+    Hexadecimal, binary and suffixed forms are rejected. Annotation numerals
+    retain decimal mathematical notation, including leading zeroes.
+    """
+    text = tokens[0]
+    if not c_semantics:
+        return NumberLiteral(text)
+    following = source[location + len(text) : location + len(text) + 1]
+    if following and (following.isalnum() or following in "_."):
+        raise ValueError(f"Unsupported C numeric literal near: {source[location:]}")
+    is_real = any(character in text for character in ".eE")
+    if not is_real and len(text) > 1 and text.startswith("0"):
+        try:
+            text = str(int(text, 8))
+        except ValueError as error:
+            raise ValueError(f"Invalid C octal integer literal: {text}") from error
+    return NumberLiteral(text)
+
+
 def make_grammar(*, quantified=False):
     """Annotations add quantifiers, old(expr), and mathematical comparison chains."""
     expression = Forward()
@@ -76,7 +98,9 @@ def make_grammar(*, quantified=False):
         lambda tokens: Variable(tokens[0])
     )
     number = Regex(r"(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?").set_parse_action(
-        lambda tokens: NumberLiteral(tokens[0])
+        lambda source, location, tokens: numeric_literal(
+            source, location, tokens, c_semantics=not quantified
+        )
     )
     boolean = (Keyword("true") | Keyword("false")).set_parse_action(
         lambda tokens: BooleanLiteral(tokens[0] == "true")

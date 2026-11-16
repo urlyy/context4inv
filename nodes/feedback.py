@@ -1,7 +1,7 @@
 """Format solver diagnostics with source names and loop-local entry snapshots."""
 
-import re
-
+from utils.expr_parser.ast import OldExpression, free_variable_names, walk_expression
+from utils.fol_parser.parser import parse_fol
 from utils.smt.models import CandidateRejection, LoopStateMaps, ProofFailure, ProofPhase
 
 _PHASE_LABELS = {
@@ -22,6 +22,8 @@ def format_counterexample(
     invariant, variables, failure: ProofFailure, states: LoopStateMaps
 ) -> str:
     """Show exactly the states involved in the failed obligation."""
+    tree = parse_fol(invariant)
+    mentioned_variables = free_variable_names(tree)
     phase = failure.phase
     headers = {
         ProofPhase.INITIALIZATION: ["variable", "value_at_loop_entry"],
@@ -37,18 +39,15 @@ def format_counterexample(
         ProofPhase.PRESERVATION: states.before_iteration,
         ProofPhase.POSTCONDITION: states.exit,
     }[phase]
-    show_entry = (
-        phase != ProofPhase.INITIALIZATION
-        and re.search(r"\bold\s*\(", invariant) is not None
+    show_entry = phase != ProofPhase.INITIALIZATION and any(
+        isinstance(node, OldExpression) for node in walk_expression(tree)
     )
     if show_entry:
         headers.insert(1, "value_at_loop_entry (old)")
     values = failure.counterexample
     rows = []
     for variable, symbol in current.items():
-        if variable not in variables and not re.search(
-            rf"\b{re.escape(variable)}\b", invariant
-        ):
+        if variable not in variables and variable not in mentioned_variables:
             continue
         symbols = [symbol]
         if phase == ProofPhase.PRESERVATION:

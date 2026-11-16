@@ -36,9 +36,9 @@ class LoopProof:
     postcondition: PostconditionObligation | None = None
 
     def invariant_at(self, symbols: SymbolMap) -> str:
-        current_values = [symbols[name] for name in self.modified_variables]
-        entry_values = [self.states.entry[name] for name in self.modified_variables]
-        return f"INV({', '.join(current_values + entry_values)})"
+        current_values = symbol_dictionary(self.modified_variables, symbols)
+        entry_values = symbol_dictionary(self.modified_variables, self.states.entry)
+        return f"INV({current_values}, {entry_values})"
 
     def definitions(self) -> str:
         lines = [
@@ -101,11 +101,15 @@ def proof_check(phase: ProofPhase, conditions: list[str]) -> str:
     )
 
 
+def symbol_dictionary(variables: list[str], symbols: SymbolMap) -> str:
+    """Keep source names in dictionary keys, outside Python's identifier namespace."""
+    pairs = ", ".join(f"({name!r}, {symbols[name]})" for name in variables)
+    return f"dict([{pairs}])"
+
+
 def checker_source(encoder: SsaEncoder, state: SsaState, proof: LoopProof) -> str:
-    parameters = [
-        *proof.modified_variables,
-        *(f"__old_{name}" for name in proof.modified_variables),
-    ]
+    # SSA symbols always end in a numeric version, unlike these fixed parameters.
+    parameters = ["__current_values", "__entry_values"]
     symbols = [
         f"{name}_{version}"
         for name, final_version in state.versions.items()

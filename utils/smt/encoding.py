@@ -15,8 +15,11 @@ from nodes.ir import (
     Statement,
 )
 from utils.c_types import VAR_ARRAY, VAR_POINTER
-from utils.expr_parser import handle_expr
+from utils.expr_parser.ast import free_variable_names
+from utils.expr_parser.parser import parse_expression
+from utils.expr_parser.rendering import Z3Renderer
 from utils.fol_parser import fol_to_z3, replace_old
+from utils.fol_parser.parser import parse_fol
 
 from .models import LoopVerificationInput, SymbolMap
 
@@ -84,13 +87,25 @@ class SsaEncoder:
         self.quantified_symbols: set[str] = set()
 
     def c_expression(self, expression: str, state: SsaState) -> str:
-        return handle_expr(expression, state.symbols)
+        tree = parse_expression(expression)
+        self.require_declared_names(free_variable_names(tree), state)
+        return Z3Renderer(state.symbols).render(tree)
+
+    @staticmethod
+    def require_declared_names(names: set[str], state: SsaState) -> None:
+        undeclared = names - state.declared_variables
+        if undeclared:
+            raise ValueError(
+                f"Undeclared source variables: {', '.join(sorted(undeclared))}"
+            )
 
     def condition(self, expression: str, state: SsaState) -> str:
         return f"__as_bool({self.c_expression(expression, state)})"
 
     def annotation(self, expression, state: SsaState) -> str:
-        code, binders = fol_to_z3(expression, state.symbols, bound_prefix="__bound_")
+        tree = parse_fol(expression)
+        self.require_declared_names(free_variable_names(tree), state)
+        code, binders = fol_to_z3(tree, state.symbols, bound_prefix="__bound_")
         self.quantified_symbols.update(binders)
         return code
 
@@ -135,6 +150,7 @@ class SsaEncoder:
         return value
 
     def encode_assignment(self, statement: Assignment, state: SsaState) -> str:
+        self.require_declared_names({statement.target}, state)
         value = self.c_expression(statement.value, state)
         value = self.assignment_value(value, self.variable_types[statement.target])
         target = state.fresh_symbol(statement.target)
@@ -143,6 +159,7 @@ class SsaEncoder:
     def encode_array_assignment(
         self, statement: ArrayAssignment, state: SsaState
     ) -> str:
+        self.require_declared_names({statement.array_name}, state)
         # Read the array, index and value before advancing the array's version.
         old_array = state.symbol(statement.array_name)
         index = f"__as_number({self.c_expression(statement.index, state)})"
